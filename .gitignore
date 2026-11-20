@@ -11,3 +11,9 @@ next-env.d.ts
 *.tsbuildinfo
 
 /src/generated/prisma
+
+# Private incident/audit evidence must never enter public Git or deployments.
+/private-evidence/
+/AUDIT.md
+/INCIDENT.md
+/ENV_MATRIX.md

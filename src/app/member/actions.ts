@@ -1,5 +1,6 @@
 'use server';
 
+import { reportIncident } from '@/lib/incident-diagnostics';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { prisma } from '@/lib/prisma';
@@ -33,8 +34,8 @@ export async function loginMember(_prev: MemberLoginState, formData: FormData): 
     await setMemberSession(member.id, member.gymId);
     return { success: true };
   } catch (error) {
-    console.error('Member login failed:', error);
-    return { error: 'Unable to sign in right now. Please try again.' };
+    const reference = reportIncident('member_login_failed', error);
+    return { error: `Unable to sign in right now. Please try again. Support reference: ${reference}` };
   }
 }
 
