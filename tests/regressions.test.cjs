@@ -386,3 +386,16 @@ test('middleware refreshes verified claims and forwards refreshed cookies withou
  assert.equal(claims,1);assert.equal(requestCookies.get('sb-test-auth-token'),'new');assert.equal(requestCookies.get('response:sb-test-auth-token'),'new');
  await middleware({cookies:{getAll:()=>[]}});assert.equal(claims,1);
 });
+
+test('incident logging discards raw SQL, credentials and PII and returns a correlation reference',()=>{
+ const lines=[];const old=console.error;console.error=x=>lines.push(x);
+ try{const {reportIncident}=load('src/lib/incident-diagnostics.ts');const ref=reportIncident('member_login_failed',{code:'P2021',message:'postgres://user:secret@host phone=9999999999',meta:{query:'private'}});assert.match(ref,/^[a-f0-9-]{36}$/);assert.deepEqual(JSON.parse(lines[0]),{event:'member_login_failed',reference:ref,code:'P2021'});reportIncident('failure',{code:'secret-injected'});assert.equal(JSON.parse(lines[1]).code,'UNCLASSIFIED');}finally{console.error=old;}
+});
+test('release gate refuses mixed Supabase projects, missing env and unverifiable DB identities',()=>{
+ const {configuration}=require('../scripts/check-deployment-readiness.cjs');
+ const env={DATABASE_URL:'postgresql://postgres.original:fake@aws-0.pooler.supabase.com:6543/postgres',NEXT_PUBLIC_SUPABASE_URL:'https://original.supabase.co',NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'public-test',NEXT_PUBLIC_SITE_URL:'https://staging.example.com'};
+ assert.equal(configuration(env).ok,true);
+ assert.equal(configuration({...env,DATABASE_URL:env.DATABASE_URL.replace('original','different')}).code,'DATABASE_AUTH_PROJECT_MISMATCH');
+ assert.equal(configuration({...env,DATABASE_URL:'postgresql://postgres:fake@localhost/db'}).code,'DATABASE_IDENTITY_UNVERIFIED');
+ assert.equal(configuration({}).code,'MISSING_CONFIGURATION');
+});
